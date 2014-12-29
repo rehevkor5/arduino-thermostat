@@ -42,6 +42,7 @@ protected:
     
     static const uint8_t NUM_SAMP_FOR_AVG = 4;
 
+    // Values of the calibration coefficients, in order.
     unsigned int coefficients_[6];
     
     int32_t PascalToCentimeter(const int32_t pressurePa)
@@ -113,17 +114,19 @@ private:
     static const uint8_t cmdAdcConv_ = 0x40;
     static const uint8_t cmdPromRd_  = 0xA0;
     
-    // unadjusted pressure
+    // unadjusted pressure (add to cmdAdcConv_ to select D1)
     static const uint8_t cmdAdcD1_   = 0x00;
-    // unadjusted temperature
+    // unadjusted temperature (add to cmdAdcConv_ to select D2)
     static const uint8_t cmdAdcD2_   = 0x10;
     
-    // Resolutions
-    static const uint8_t cmdAdc256_  = 0x00;
-    static const uint8_t cmdAdc512_  = 0x02;
-    static const uint8_t cmdAdc1024_ = 0x04;
-    static const uint8_t cmdAdc2048_ = 0x06;
-    static const uint8_t cmdAdc4096_ = 0x08;
+    // Oversampling Ratio (OSR) selectors (added to cmdAdcConv_ and D1 or D2 to select the Oversampling Ratio)
+    // which change the Resolution RMS (root mean square).
+    // Typical resolution RMS in Celsius at VDD = 3V, T = 25 Celsius in comments:
+    static const uint8_t cmdAdc256_  = 0x00; //0.012
+    static const uint8_t cmdAdc512_  = 0x02; //0.008
+    static const uint8_t cmdAdc1024_ = 0x04; //0.005
+    static const uint8_t cmdAdc2048_ = 0x06; //0.003
+    static const uint8_t cmdAdc4096_ = 0x08; //0.002
 
     void ResetSensor()
     {
@@ -135,6 +138,8 @@ private:
     }
 
     /*
+    This populates the calibration coefficient values and stores them in a member variable.
+    
     My chip shows coefficient values:
     1: 43215
     2: 38230
@@ -168,21 +173,29 @@ private:
     */
     uint16_t ReadCoefficient(const uint8_t coefNum)
     {
-        uint16_t rC=0;
+        uint16_t result = 0;
     
         Wire.beginTransmission(i2cAddr_);
-        Wire.write(cmdPromRd_ + coefNum * 2); // send PROM READ command
+        
+        // send PROM READ command
+        // The address of the PROM is embedded inside of the PROM read command using the Ad2, Ad1 and Ad0 bits,
+        // those being the 2nd, 3rd, and 4th bits. Thus we multiply the address by 2 to make it start at the 2nd bit.
+        Wire.write(cmdPromRd_ + coefNum * 2);
         Wire.endTransmission(); 
     
+        // PROM reads return two bytes
         Wire.requestFrom(i2cAddr_, static_cast<uint8_t>(2));
 
         if(Wire.available() >= 2)
         {
-            uint16_t ret = Wire.read();   // read MSB and acknowledge
-            uint16_t rC  = 256 * ret;
-            ret = Wire.read();        // read LSB and not acknowledge
-            rC  = rC + ret;
-            return rC;
+            // Concatenate the first & second byte to create a 16 bit uint.
+            // read MSB and acknowledge
+            uint8_t tmp = Wire.read(); //was previously uint16_t... but just a byte should be ok?
+            uint16_t result  = tmp << 8;
+            // read LSB and not acknowledge
+            tmp = Wire.read();
+            result  = result + tmp;
+            return result;
         }
 #ifdef DEBUG
         else
@@ -294,6 +307,10 @@ private:
         return 0;
     }
 
+    /*
+    Parameters: unadjusted pressure and temperature from D1 and D2.
+    Returns temperature compensated pressure according to the 1st-order algorithm (inaccurate for temperatures below 20 C)
+    */
     uint32_t ConvertPressureTemperature(uint32_t pressure, uint32_t temperature) {
         // calcualte 1st order pressure and temperature (MS5607 1st order algorithm)
         const int32_t dT    = temperature - coefficients_[4] * 256;                     // difference between actual and reference temperature

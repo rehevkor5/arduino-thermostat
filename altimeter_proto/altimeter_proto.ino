@@ -6,6 +6,9 @@
 /*
 "This module’s default communication setup is I²C. Use of SPI communication is configured by pulling the
 PS pin low. See the datasheet for SPI configuration and use."
+
+
+For info about datatypes such as uint32_t, see http://en.wikipedia.org/wiki/C_data_types#stdint.h
 */
 
 // boolean parameter is i2c address select
