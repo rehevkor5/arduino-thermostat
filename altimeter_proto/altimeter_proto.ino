@@ -1,8 +1,6 @@
 #include <Wire.h>
 #include "IntersemaBaro.h"
 
-#define DEBUG
-
 /*
 "This module’s default communication setup is I²C. Use of SPI communication is configured by pulling the
 PS pin low. See the datasheet for SPI configuration and use."
@@ -17,6 +15,7 @@ Intersema::BaroPressure_MS5607B baro(true);
 void setup() { 
     Serial.begin(9600);
     baro.init();
+    baro.testTemperatureRange();
 }
 
 void loop() {

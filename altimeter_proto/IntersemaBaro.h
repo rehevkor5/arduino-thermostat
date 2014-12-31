@@ -55,6 +55,7 @@ protected:
         static const int32_t PA_INIT       = 104908;
         static const int32_t PA_DELTA      = 1024;
 
+        // Consider using PROGMEM? http://arduino.cc/en/Reference/PROGMEM http://www.atmel.com/images/doc8453.pdf
         static const int32_t lookupTable[PZLUT_ENTRIES] = {
 	    -29408, -21087, -12700,  -4244,   4279,
 	     12874,  21541,  30281,  39095,  47986,
@@ -97,6 +98,14 @@ public:
     // @param CSB  i2c address select
     // 0xEC is aka DEVICE_ADDR
     BaroPressure_MS5607B(bool CSB = false) : i2cAddr_((CSB ? 0xEC : 0xEE) >> 1) { }
+    
+    // TODO: delete me
+    void testTemperatureRange(void) {
+      for(uint32_t d2 = 0; d2 < 16777216; ++d2)
+      {
+        Serial.println(ConvertTemperature(d2));
+      }
+    }
     
     void init()
     {    
@@ -152,7 +161,7 @@ private:
     {
         for(uint8_t i=0; i<6; ++i)
         {
-            coefficients_[i] = ReadCoefficient(i + 1);  
+            coefficients_[i] = ReadCoefficient(i + 1);
         }
         
 #ifdef DEBUG
@@ -338,8 +347,11 @@ private:
     // method by SC, copied from above
     uint32_t ConvertTemperature(uint32_t temperature) {
       // calcualte 1st order pressure and temperature (MS5607 1st order algorithm)
+      // For my chip: dT min = -8,372,736 and dT max = 8,404,480 (32 bit signed)
+      // However, based on min & max TEMP, dT min = -1,820,181 and dT max = 1,971,862 (still 32 bit signed)
       const int32_t dT    = temperature - coefficients_[4] * 256;                     // difference between actual and reference temperature
-      // in the code above, apparently there were problems with overflow... I'm guessing pow(2, 23) has the same issue?
+      // 
+      // pow() returns a double
       const int32_t temp  = (2000 + (dT * coefficients_[5]) / pow(2, 23)) ; // actual temperature in cents of Celsius (divide by 100 to get C)
       return temp;
     }
