@@ -101,9 +101,16 @@ public:
     
     // TODO: delete me
     void testTemperatureRange(void) {
-      for(uint32_t d2 = 0; d2 < 16777216; ++d2)
+      int32_t wtf;
+      //for (uint32_t d2 = 0; d2 < 9387312; d2 = d2 + 4048)
+      for (uint32_t d2 = 0; d2 < 10000; d2 = d2 + 256)
       {
-        Serial.println(ConvertTemperature(d2));
+        Serial.print("D2: ");
+        Serial.println(d2);
+        wtf = convertTemperature(d2);
+        Serial.print("Temp: ");
+        Serial.println(wtf);
+        delay(10);
       }
     }
     
@@ -222,7 +229,7 @@ private:
       
       for(size_t n = nSamples; n; n--) {
         const uint32_t temperature = ReadAdc(cmdAdcD2_ | cmdAdc4096_); // digital temperature value : typical 8077636
-        const uint32_t tempConv = ConvertTemperature(temperature);
+        const int32_t tempConv = convertTemperature(temperature);
         tempAccum += tempConv;
       }
       
@@ -344,20 +351,35 @@ private:
         return press; 
     }
     
-    // method by SC, copied from above
-    uint32_t ConvertTemperature(uint32_t temperature) {
+    /*
+    Converts d2 to temperature.
+    
+    A d2 of zero should return -58243.
+    A d2 of 
+    
+    d2: the digital temperature value
+    returns: temperature in cents of Celsius (divide by 100 to get C)
+    */
+    int32_t convertTemperature(uint32_t d2) {
       // calcualte 1st order pressure and temperature (MS5607 1st order algorithm)
       // For my chip: dT min = -8,372,736 and dT max = 8,404,480 (32 bit signed)
       // However, based on min & max TEMP, dT min = -1,820,181 and dT max = 1,971,862 (still 32 bit signed)
-      const int32_t dT    = temperature - coefficients_[4] * 256;                     // difference between actual and reference temperature
-      // 
-      // pow() returns a double
-      const int32_t temp  = (2000 + (dT * coefficients_[5]) / pow(2, 23)) ; // actual temperature in cents of Celsius (divide by 100 to get C)
-      return temp;
+      // difference between actual and reference temperature
+      const int32_t dT = d2 - coefficients_[4] * static_cast<int32_t>(256);
+      Serial.print("dT: ");
+      Serial.println(dT);
+      const int32_t firstOrderTemperature = (2000 + static_cast<int32_t>((((float) dT) * coefficients_[5]) / pow(2, 23)));
+      Serial.print("temp1: ");
+      Serial.println(firstOrderTemperature);
+      if (firstOrderTemperature < 2000) {
+        const float t2 = (float) dT * (float) dT / pow(2, 31);
+        const int32_t temp = firstOrderTemperature - t2;
+        return temp;
+      } else {
+        return firstOrderTemperature;
+      }
     }
-
 };
-
 } // namespace Intersema
 #endif
 
