@@ -3,9 +3,17 @@
 <html>
 <head>
   <title></title>
-  <meta http-equiv="refresh" content="1"/>
+  <!--<meta http-equiv="refresh" content="2"/>-->
+  <script type="text/javascript">
+    function refreshGraph() {
+      var graphImg = document.getElementById("graph");
+      graphImg.src = "graph.gif#" + new Date().getTime();
+      setTimeout(refreshGraph, 1000);
+    }
+    setTimeout(refreshGraph, 1000);
+  </script>
 </head>
 <body>
-  <img src="chart.gif"/>s
+  <img id="graph" src="graph.png"/>
 </body>
 </html>
